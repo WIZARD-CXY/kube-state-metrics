@@ -27,9 +27,10 @@ import (
 )
 
 var (
-	descNodeLabelsName          = "kube_node_labels"
-	descNodeLabelsHelp          = "Kubernetes labels converted to Prometheus labels."
-	descNodeLabelsDefaultLabels = []string{"node"}
+	descNodeLabelsName                               = "kube_node_labels"
+	descNodeLabelsHelp                               = "Kubernetes labels converted to Prometheus labels."
+	descNodeLabelsDefaultLabels                      = []string{"node"}
+	kernelHasDeadlockCondition  v1.NodeConditionType = "KernelDeadlock"
 
 	descNodeInfo = prometheus.NewDesc(
 		"kube_node_info",
@@ -60,6 +61,11 @@ var (
 	descNodeStatusReady = prometheus.NewDesc(
 		"kube_node_status_ready",
 		"The ready status of a cluster node.",
+		[]string{"node", "condition"}, nil,
+	)
+	descNodeStatusKernelHasDeadlock = prometheus.NewDesc(
+		"kube_node_status_kernel_deadlock",
+		"whether the node has kernel dead lock.",
 		[]string{"node", "condition"}, nil,
 	)
 	descNodeStatusOutOfDisk = prometheus.NewDesc(
@@ -157,6 +163,7 @@ func (nc *nodeCollector) Describe(ch chan<- *prometheus.Desc) {
 	ch <- descNodeInfo
 	ch <- descNodeLabels
 	ch <- descNodeSpecUnschedulable
+	ch <- descNodeStatusKernelHasDeadlock
 	ch <- descNodeStatusReady
 	ch <- descNodeStatusMemoryPressure
 	ch <- descNodeStatusDiskPressure
@@ -225,6 +232,8 @@ func (nc *nodeCollector) collectNode(ch chan<- prometheus.Metric, n v1.Node) {
 			addConditionMetrics(ch, descNodeStatusDiskPressure, c.Status, n.Name)
 		case v1.NodeNetworkUnavailable:
 			addConditionMetrics(ch, descNodeStatusNetworkUnavailable, c.Status, n.Name)
+		case kernelHasDeadlockCondition:
+			addConditionMetrics(ch, descNodeStatusKernelHasDeadlock, c.Status, n.Name)
 		}
 	}
 
